@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador 3D - Libro Flexible 4K</title>
+    <style>
+        /* Estilos generales */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f0f15;
+            color: #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 { font-size: 2rem; margin-bottom: 5px; text-align: center; }
+        
+        .main-container {
+            display: flex; flex-direction: column; align-items: center; gap: 20px;
+            width: 100%; max-width: 600px;
+        }
+
+        /* Controles */
+        .live-controls {
+            background: #1e1e24; padding: 25px; border-radius: 20px;
+            width: 100%; box-sizing: border-box; box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+        }
+
+        .control-group {
+            display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;
+        }
+        .control-group:last-child { margin-bottom: 0; }
+        .control-group label { flex: 1.2; font-weight: 600; font-size: 0.95rem; }
+        input[type="range"] { flex: 1.8; cursor: pointer; accent-color: #ff5e3a; }
+        select { flex: 1.8; background: #2a2a35; border: 1px solid #4a4a5a; color: white; padding: 8px; border-radius: 8px; outline: none;}
+        
+        .val-display { width: 55px; text-align: right; font-weight: bold; color: #ff5e3a; font-size: 0.95rem; }
+        .color-group { display: flex; align-items: center; gap: 10px; flex: 1.8; }
+        input[type="color"] { border: none; width: 36px; height: 36px; border-radius: 8px; cursor: pointer; background: transparent; }
+        .hex-input { background: #2a2a35; border: 1px solid #4a4a5a; color: white; padding: 6px; border-radius: 8px; width: 80px; text-align: center; }
+        .checkbox-label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; }
+
+        /* Botones */
+        button {
+            background-color: #ff5e3a; color: white; border: none; padding: 12px 20px;
+            border-radius: 25px; cursor: pointer; font-weight: bold; font-size: 1rem;
+            transition: transform 0.2s, background-color 0.2s;
+        }
+        button:hover { background-color: #ff4720; transform: scale(1.02); }
+        button:disabled { background-color: #333; color: #777; cursor: not-allowed; transform: none; }
+        .btn-secondary { background-color: #4a4a5a; }
+        .btn-secondary:hover { background-color: #5a5a6a; }
+        .btn-small { padding: 8px 15px; font-size: 0.9rem; border-radius: 15px; }
+
+        /* Canvas y Resultados */
+        #canvas-container {
+            width: 100%; max-width: 500px; aspect-ratio: 4 / 3;
+            background: #0f0f15; border-radius: 20px; overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center;
+        }
+        canvas { display: block; outline: none; }
+        #status { font-weight: bold; color: #ffeb3b; margin-top: 10px; text-align: center; }
+
+        #result-container {
+            display: none; text-align: center; background: #1e1e24; padding: 20px; border-radius: 20px;
+            width: 100%; max-width: 500px; box-sizing: border-box;
+        }
+        #result-gif, #result-video {
+            max-width: 100%; border-radius: 10px; margin-top: 10px;
+            background: repeating-conic-gradient(#1e1e24 0% 25%, #0f0f15 0% 50%) 50% / 20px 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        }
+
+        /* Modal Gestor de Páginas */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85); display: flex; justify-content: center; align-items: center;
+            z-index: 1000; transition: opacity 0.3s;
+        }
+        .modal-overlay.hidden { opacity: 0; pointer-events: none; }
+        .modal-content {
+            background: #1e1e24; padding: 30px; border-radius: 20px; width: 90%; max-width: 500px;
+            display: flex; flex-direction: column; gap: 15px; max-height: 90vh;
+        }
+        
+        .pages-scroll-area {
+            overflow-y: auto;
+            max-height: 50vh;
+            padding-right: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* Estilo del Scrollbar */
+        .pages-scroll-area::-webkit-scrollbar { width: 8px; }
+        .pages-scroll-area::-webkit-scrollbar-track { background: #2a2a35; border-radius: 10px; }
+        .pages-scroll-area::-webkit-scrollbar-thumb { background: #ff5e3a; border-radius: 10px; }
+
+        .page-item {
+            background: #2a2a35; padding: 15px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            border: 1px solid #4a4a5a;
+        }
+        .page-item label { font-weight: bold; color: #ffeb3b; width: 80px; }
+        input[type="file"] { background: #1e1e24; padding: 8px; border-radius: 8px; color: white; flex: 1; font-size: 0.85rem;}
+        
+        .modal-footer {
+            display: flex; justify-content: space-between; gap: 10px; margin-top: 10px;
+            padding-top: 15px; border-top: 1px solid #4a4a5a;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+</head>
+<body>
+
+    <h1>Libro 3D Flexible <span style="color:#ff5e3a;">HD</span></h1>
+
+    <div class="main-container">
+        <div id="canvas-container"></div>
+        <div id="status">Iniciando motor 3D de alta resolución...</div>
+        
+        <div id="result-container">
+            <h3 style="margin-top: 0; color: #4CAF50;">¡Archivo Generado!</h3>
+            <img id="result-gif" style="display:none;">
+            <video id="result-video" controls autoplay loop style="display:none;"></video>
+            <br>
+            <button class="btn-secondary" id="btnVolver" style="margin-top: 15px;">Volver al Editor</button>
+        </div>
+
+        <div class="live-controls" id="liveControls">
+            <div class="control-group">
+                <label>Formato:</label>
+                <select id="formatSelect">
+                    <option value="video">Video HD 1080p (Recomendado)</option>
+                    <option value="gif">GIF Animado (Alta Calidad)</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Tiempo por Ciclo (seg):</label>
+                <input type="range" id="timeRange" min="3" max="8" step="0.5" value="4.5">
+                <span class="val-display" id="timeVal">4.5s</span>
+            </div>
+            <div class="control-group">
+                <label>Color Fondo:</label>
+                <div class="color-group">
+                    <input type="color" id="bgColorPicker" value="#0f0f15">
+                    <input type="text" id="bgHexInput" class="hex-input" value="#0F0F15" maxlength="7">
+                </div>
+            </div>
+            <div class="control-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="transparentCheck"> Fondo Transparente
+                </label>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+                <button class="btn-secondary" id="btnOpenModal">Gestor de Páginas</button>
+                <button id="btnGenerate">Exportar Animación</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Gestor de Páginas -->
+    <div id="imageModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2 style="margin: 0; text-align: center;">Gestor de Páginas</h2>
+            <p style="font-size: 0.9rem; color: #aaa; margin: 0; text-align: center;">
+                Sube imágenes de alta resolución. El motor 3D aplicará filtros para máxima nitidez.
+            </p>
+            
+            <div class="pages-scroll-area" id="pages-list">
+                <!-- Dinámico -->
+            </div>
+
+            <button class="btn-secondary btn-small" id="btnAddPage" style="margin: 0 auto; display: block;">+ Añadir Página</button>
+
+            <div class="modal-footer">
+                <button class="btn-secondary" id="btnCancelModal" style="flex:1;">Cancelar</button>
+                <button id="btnAcceptModal" style="flex:1;">Aplicar Texturas HD</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function easeInOutCubic(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+        
+        let scene, camera, renderer, maxAnisotropy;
+        let bookGroup, pageLeft, pageRight, pageTurn;
+        let pageTextures = []; 
+        let isAnimating = true;
+        let virtualTime = 0; 
+        let cycleDuration = 4.5; 
+        
+        const container = document.getElementById('canvas-container');
+        const statusEl = document.getElementById('status');
+        const modal = document.getElementById('imageModal');
+        const bgColorPicker = document.getElementById('bgColorPicker');
+        const transparentCheck = document.getElementById('transparentCheck');
+
+        const W = 1.2; 
+        const H = 1.6; 
+        const THICKNESS = 0.005; 
+        const SEGMENTS = 32; 
+
+        // 1. Textura base en ALTA RESOLUCIÓN (Doble tamaño) + Filtrado Anisotrópico
+        function createFallbackTexture(pageNum) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024; canvas.height = 1364; // Resolución 2K
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = (pageNum % 2 === 0) ? '#e6e0d4' : '#f4efe4'; 
+            ctx.fillRect(0,0,1024,1364);
+            
+            ctx.strokeStyle = '#c8bfb0'; ctx.lineWidth = 8;
+            ctx.strokeRect(40, 40, 944, 1284);
+
+            ctx.fillStyle = '#333'; ctx.font = 'bold 160px Arial';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(`Página ${pageNum}`, 512, 682);
+            
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.generateMipmaps = true;
+            tex.minFilter = THREE.LinearMipmapLinearFilter;
+            if (maxAnisotropy) tex.anisotropy = maxAnisotropy; // Clave para que no se pixele al inclinarse
+            
+            return tex;
+        }
+
+        // 2. Inicializar Motor 3D HD
+        function init3D() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(38, 4/3, 0.1, 1000);
+            camera.position.set(0, -0.3, 3.8); 
+
+            // Habilitar antialiasing y PixelRatio nativo del monitor (para pantallas de alta densidad)
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+            renderer.setPixelRatio(window.devicePixelRatio); // Renderizado ultra nítido
+            renderer.setSize(500, 375); 
+            container.appendChild(renderer.domElement);
+
+            // Obtener máxima capacidad de filtrado de la tarjeta gráfica del usuario
+            maxAnisotropy = renderer.capabilities.getMaxAnisotropy();
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            directionalLight.position.set(2, 5, 3);
+            scene.add(directionalLight);
+
+            buildBook();
+            updateBackground();
+            
+            let lastTime = performance.now();
+            function animateLoop(time) {
+                requestAnimationFrame(animateLoop);
+                if (isAnimating) {
+                    let dt = (time - lastTime) / 1000;
+                    virtualTime += dt;
+                    updateBookAnimation(virtualTime);
+                    renderer.render(scene, camera);
+                }
+                lastTime = time;
+            }
+            requestAnimationFrame(animateLoop);
+        }
+
+        function buildBook() {
+            if (bookGroup) scene.remove(bookGroup);
+            bookGroup = new THREE.Group();
+
+            const coverMat = new THREE.MeshLambertMaterial({ color: '#2c3e50' });
+            const coverGeo = new THREE.BoxGeometry(W * 2.05, H + 0.1, 0.05);
+            const cover = new THREE.Mesh(coverGeo, coverMat);
+            cover.position.set(0, 0, -0.025);
+            bookGroup.add(cover);
+
+            const planeGeo = new THREE.PlaneGeometry(W, H);
+            pageLeft = new THREE.Mesh(planeGeo, new THREE.MeshLambertMaterial({ color: 0xffffff }));
+            pageLeft.position.set(-W/2, 0, 0.01);
+            
+            pageRight = new THREE.Mesh(planeGeo, new THREE.MeshLambertMaterial({ color: 0xffffff }));
+            pageRight.position.set(W/2, 0, 0.01);
+
+            bookGroup.add(pageLeft);
+            bookGroup.add(pageRight);
+
+            const turnGeo = new THREE.BoxGeometry(W, H, THICKNESS, SEGMENTS, 1, 1);
+            turnGeo.translate(W/2, 0, 0); 
+            turnGeo.userData.origPositions = turnGeo.attributes.position.array.slice();
+            
+            pageTurn = new THREE.Mesh(turnGeo, [
+                new THREE.MeshLambertMaterial({ color: 0xeeeeee }),
+                new THREE.MeshLambertMaterial({ color: 0xeeeeee }),
+                new THREE.MeshLambertMaterial({ color: 0xeeeeee }),
+                new THREE.MeshLambertMaterial({ color: 0xeeeeee }),
+                new THREE.MeshLambertMaterial({ color: 0xffffff }), // Frente
+                new THREE.MeshLambertMaterial({ color: 0xffffff })  // Atrás
+            ]);
+            pageTurn.position.set(0, 0, 0.015);
+            bookGroup.add(pageTurn);
+
+            scene.add(bookGroup);
+        }
+
+        let currentCycleIndex = -1;
+        function updateTexturesForCycle(cycle) {
+            if (pageTextures.length === 0) return;
+            if (cycle === currentCycleIndex) return; 
+            currentCycleIndex = cycle;
+
+            const N = pageTextures.length;
+            
+            pageLeft.material.map = pageTextures[(2 * cycle) % N];
+            pageLeft.material.needsUpdate = true;
+
+            pageRight.material.map = pageTextures[(2 * cycle + 3) % N];
+            pageRight.material.needsUpdate = true;
+
+            pageTurn.material[4].map = pageTextures[(2 * cycle + 1) % N]; 
+            pageTurn.material[4].needsUpdate = true;
+            
+            pageTurn.material[5].map = pageTextures[(2 * cycle + 2) % N];  
+            pageTurn.material[5].needsUpdate = true;
+        }
+
+        function updateBookAnimation(time) {
+            const cycle = Math.floor(time / cycleDuration);
+            updateTexturesForCycle(cycle);
+
+            const t = (time % cycleDuration) / cycleDuration;
+            const ANGLE_FLAT = -Math.PI / 2 + 0.15; 
+            const ANGLE_UP = -0.05; 
+
+            let flipProgress = 0;
+
+            if (t < 0.20) {
+                flipProgress = t / 0.20; 
+                bookGroup.rotation.x = ANGLE_FLAT; 
+            } else if (t < 0.40) {
+                flipProgress = 1;
+                bookGroup.rotation.x = ANGLE_FLAT + (ANGLE_UP - ANGLE_FLAT) * easeInOutCubic((t - 0.20) / 0.20); 
+            } else if (t < 0.80) {
+                flipProgress = 1;
+                bookGroup.rotation.x = ANGLE_UP;
+            } else {
+                flipProgress = 1;
+                bookGroup.rotation.x = ANGLE_UP + (ANGLE_FLAT - ANGLE_UP) * easeInOutCubic((t - 0.80) / 0.20);
+            }
+
+            const posAttribute = pageTurn.geometry.attributes.position;
+            const orig = pageTurn.geometry.userData.origPositions;
+            
+            let p = easeInOutCubic(flipProgress);
+            let bend = Math.sin(p * Math.PI) * 0.35; 
+            
+            for(let i = 0; i < posAttribute.count; i++) {
+                let ox = orig[i*3];
+                let oy = orig[i*3+1];
+                let oz = orig[i*3+2];
+                let normalizedX = ox / W; 
+                let addZ = Math.sin(normalizedX * Math.PI) * bend;
+                let pullX = (1 - Math.cos(normalizedX * Math.PI/2)) * Math.abs(bend) * 0.4;
+                posAttribute.setXYZ(i, ox - pullX, oy, oz + addZ);
+            }
+            posAttribute.needsUpdate = true;
+            pageTurn.rotation.y = -(p * Math.PI);
+        }
+
+        function updateBackground() {
+            if (transparentCheck.checked) {
+                scene.background = null;
+                container.style.background = "repeating-conic-gradient(#1e1e24 0% 25%, #0f0f15 0% 50%) 50% / 20px 20px";
+            } else {
+                scene.background = new THREE.Color(bgColorPicker.value);
+                container.style.background = bgColorPicker.value;
+            }
+        }
+
+        // --- SISTEMA UI DINÁMICO ---
+        const pagesList = document.getElementById('pages-list');
+        let pageCount = 0;
+
+        function addPageUI() {
+            pageCount++;
+            const div = document.createElement('div');
+            div.className = 'page-item';
+            div.innerHTML = `
+                <label>Página ${pageCount}:</label>
+                <input type="file" class="page-file-input" accept="image/*">
+            `;
+            pagesList.appendChild(div);
+            pagesList.scrollTop = pagesList.scrollHeight;
+        }
+
+        for(let i=0; i<4; i++) addPageUI();
+
+        document.getElementById('btnAddPage').addEventListener('click', addPageUI);
+
+        // Procesar imágenes de Alta Calidad
+        document.getElementById('btnAcceptModal').addEventListener('click', async () => {
+            const inputs = document.querySelectorAll('.page-file-input');
+            statusEl.innerText = "Procesando texturas en alta resolución...";
+            modal.classList.add('hidden');
+            
+            const loader = new THREE.TextureLoader();
+            const newTexs = [];
+            
+            for (let i = 0; i < inputs.length; i++) {
+                const file = inputs[i].files[0];
+                if (file) {
+                    const url = URL.createObjectURL(file);
+                    const tex = await new Promise(res => loader.load(url, res));
+                    
+                    // Aplicar filtros HD para evitar pixeleado
+                    tex.generateMipmaps = true;
+                    tex.minFilter = THREE.LinearMipmapLinearFilter;
+                    tex.anisotropy = maxAnisotropy; 
+                    
+                    newTexs.push(tex);
+                } else {
+                    newTexs.push(createFallbackTexture(i + 1));
+                }
+            }
+            
+            if (newTexs.length % 2 !== 0) newTexs.push(createFallbackTexture(newTexs.length + 1));
+            
+            pageTextures = newTexs;
+            currentCycleIndex = -1; 
+            virtualTime = 0;
+            statusEl.innerText = "Texturas aplicadas (Vista Previa HD)";
+        });
+
+        // --- EXPORTACIÓN DE ALTA CALIDAD ---
+        function startExport(type) {
+            isAnimating = false; 
+            document.getElementById('btnGenerate').disabled = true;
+            statusEl.style.color = "#ffeb3b";
+
+            const numCycles = Math.ceil(pageTextures.length / 2);
+            const totalExportTime = numCycles * cycleDuration;
+            
+            if (type === 'video') exportVideo(totalExportTime);
+            else exportGIF(totalExportTime);
+        }
+
+        function exportGIF(totalTime) {
+            statusEl.innerText = `Preparando GIF Alta Calidad (${totalTime}s)...`;
+            
+            // Incrementamos la resolución del GIF a 800x600 para mayor nitidez
+            const gifW = 800;
+            const gifH = 600;
+
+            renderer.setSize(gifW, gifH, false);
+            camera.aspect = gifW / gifH; 
+            camera.updateProjectionMatrix();
+
+            const gif = new GIF({
+                workers: 2, quality: 10, width: gifW, height: gifH,
+                workerScript: URL.createObjectURL(new Blob(['importScripts("https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js");'], { type: 'application/javascript' })),
+                transparent: transparentCheck.checked ? 0xFF00FF : null
+            });
+
+            if (transparentCheck.checked) scene.background = null;
+            else scene.background = new THREE.Color(bgColorPicker.value);
+
+            const fps = 20; 
+            const totalFrames = Math.floor(totalTime * fps);
+            let frame = 0;
+            
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = gifW; tempCanvas.height = gifH;
+            const tempCtx = tempCanvas.getContext('2d');
+
+            function capture() {
+                if (frame < totalFrames) {
+                    let vt = frame * (1 / fps);
+                    updateBookAnimation(vt);
+                    renderer.render(scene, camera);
+
+                    if (transparentCheck.checked) {
+                        tempCtx.clearRect(0, 0, gifW, gifH);
+                        tempCtx.drawImage(renderer.domElement, 0, 0);
+                        const imgData = tempCtx.getImageData(0, 0, gifW, gifH);
+                        for (let i = 0; i < imgData.data.length; i += 4) {
+                            if (imgData.data[i + 3] < 128) {
+                                imgData.data[i]=255; imgData.data[i+1]=0; imgData.data[i+2]=255; imgData.data[i+3]=255;
+                            } else { imgData.data[i+3]=255; }
+                        }
+                        tempCtx.putImageData(imgData, 0, 0);
+                        gif.addFrame(tempCanvas, { copy: true, delay: 1000/fps });
+                    } else {
+                        gif.addFrame(renderer.domElement, { copy: true, delay: 1000/fps });
+                    }
+                    
+                    frame++;
+                    statusEl.innerText = `Renderizando GIF: ${Math.round((frame/totalFrames)*100)}%`;
+                    requestAnimationFrame(capture);
+                } else {
+                    statusEl.innerText = "Compilando archivo (Puede demorar por la alta resolución)... ⚙️";
+                    gif.render();
+                }
+            }
+            gif.on('finished', blob => {
+                restorePreviewView();
+                showResult(URL.createObjectURL(blob), 'gif');
+            });
+            capture();
+        }
+
+        function exportVideo(totalTime) {
+            statusEl.innerText = "Iniciando grabación de Video Full HD...";
+            
+            // Resolución Video 1440x1080 (Full HD en 4:3) para máxima nitidez
+            const vidW = 1440;
+            const vidH = 1080;
+            
+            renderer.setSize(vidW, vidH, false);
+            camera.aspect = vidW / vidH; 
+            camera.updateProjectionMatrix();
+
+            const fps = 30;
+            const totalFrames = Math.floor(totalTime * fps);
+            let frame = 0;
+
+            const stream = renderer.domElement.captureStream(fps);
+            let mediaRecorder;
+            try { mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' }); } 
+            catch(e) { mediaRecorder = new MediaRecorder(stream); }
+
+            const chunks = [];
+            mediaRecorder.ondataavailable = e => { if(e.data.size > 0) chunks.push(e.data); };
+            
+            mediaRecorder.onstop = () => {
+                restorePreviewView();
+                const blob = new Blob(chunks, { type: 'video/webm' });
+                showResult(URL.createObjectURL(blob), 'video');
+            };
+
+            mediaRecorder.start();
+
+            function record() {
+                if (frame <= totalFrames) {
+                    let vt = frame * (1 / fps);
+                    updateBookAnimation(vt);
+                    renderer.render(scene, camera);
+                    frame++;
+                    statusEl.innerText = `Grabando Video Full HD: ${Math.round((frame/totalFrames)*100)}%`;
+                    setTimeout(record, 1000/fps);
+                } else {
+                    mediaRecorder.stop();
+                }
+            }
+            record();
+        }
+
+        function restorePreviewView() {
+            renderer.setSize(500, 375, false);
+            camera.aspect = 4/3; 
+            camera.updateProjectionMatrix();
+            updateBackground();
+        }
+
+        function showResult(url, type) {
+            document.getElementById('canvas-container').style.display = 'none';
+            document.getElementById('result-container').style.display = 'block';
+            
+            const gifEl = document.getElementById('result-gif');
+            const vidEl = document.getElementById('result-video');
+            
+            if (type === 'gif') {
+                vidEl.style.display = 'none'; gifEl.style.display = 'block';
+                gifEl.src = url;
+            } else {
+                gifEl.style.display = 'none'; vidEl.style.display = 'block';
+                vidEl.src = url;
+            }
+            
+            statusEl.innerText = "¡Exportación de Alta Calidad finalizada!";
+            statusEl.style.color = "#4CAF50";
+            document.getElementById('btnGenerate').disabled = false;
+        }
+
+        // Eventos Generales UI
+        document.getElementById('btnOpenModal').addEventListener('click', () => modal.classList.remove('hidden'));
+        document.getElementById('btnCancelModal').addEventListener('click', () => modal.classList.add('hidden'));
+        
+        document.getElementById('timeRange').addEventListener('input', e => {
+            cycleDuration = parseFloat(e.target.value);
+            document.getElementById('timeVal').innerText = cycleDuration + 's';
+        });
+
+        bgColorPicker.addEventListener('input', e => { document.getElementById('bgHexInput').value = e.target.value.toUpperCase(); updateBackground(); });
+        document.getElementById('bgHexInput').addEventListener('input', e => { if(/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) { bgColorPicker.value = e.target.value; updateBackground(); }});
+        transparentCheck.addEventListener('change', updateBackground);
+
+        document.getElementById('btnGenerate').addEventListener('click', () => {
+            startExport(document.getElementById('formatSelect').value);
+        });
+
+        document.getElementById('btnVolver').addEventListener('click', () => {
+            document.getElementById('result-container').style.display = 'none';
+            document.getElementById('canvas-container').style.display = 'flex';
+            statusEl.innerText = "Modo Vista Previa HD";
+            statusEl.style.color = "#a0a0a0";
+            isAnimating = true;
+        });
+
+        // Orden de ejecución: Inicializar el renderer para obtener maxAnisotropy, luego crear texturas.
+        init3D();
+        pageTextures = [createFallbackTexture(1), createFallbackTexture(2), createFallbackTexture(3), createFallbackTexture(4)];
+        statusEl.innerText = "Libro Base Generado (Vista Previa HD)";
+        statusEl.style.color = "#a0a0a0";
+
+    </script>
+</body>
+</html>
