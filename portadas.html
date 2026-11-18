@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador 3D - Libro Animado Pro</title>
+    <style>
+        /* Estilos generales */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f0f15;
+            color: #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 30px 20px;
+            font-size: 1.1rem;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            margin-bottom: 10px;
+            text-align: center;
+            font-weight: 700;
+        }
+
+        /* Contenedor principal */
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        /* Controles en tiempo real */
+        .live-controls {
+            background: #1e1e24;
+            padding: 25px;
+            border-radius: 20px;
+            width: 100%;
+            box-sizing: border-box;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+            display: none;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+
+        .control-group:last-child { margin-bottom: 0; }
+
+        .control-group label {
+            flex: 1.2;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        input[type="range"] {
+            flex: 1.8;
+            cursor: pointer;
+            accent-color: #ff5e3a;
+        }
+        
+        .val-display {
+            width: 55px;
+            text-align: right;
+            font-weight: bold;
+            color: #ff5e3a;
+            font-size: 0.95rem;
+        }
+
+        /* Selector de formato */
+        select.format-select {
+            background: #2a2a35;
+            border: 1px solid #4a4a5a;
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            flex: 1.8;
+            outline: none;
+        }
+
+        /* Grupo de selección de color */
+        .color-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1.8;
+        }
+
+        input[type="color"] {
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            cursor: pointer;
+            background: transparent;
+        }
+
+        input[type="text"].hex-input {
+            background: #2a2a35;
+            border: 1px solid #4a4a5a;
+            color: #fff;
+            padding: 6px 10px;
+            border-radius: 8px;
+            width: 80px;
+            font-family: monospace;
+            font-size: 0.95rem;
+            text-align: center;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+
+        /* Botones */
+        button {
+            background-color: #ff5e3a;
+            color: white;
+            border: none;
+            padding: 14px 24px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-weight: 700;
+            transition: transform 0.2s, background-color 0.2s;
+            box-shadow: 0 4px 10px rgba(255, 94, 58, 0.3);
+        }
+        
+        button:hover { 
+            background-color: #ff4720; 
+            transform: scale(1.02);
+        }
+        
+        button:disabled { 
+            background-color: #333; 
+            color: #777;
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary { background-color: #4a4a5a; box-shadow: none; }
+        .btn-secondary:hover { background-color: #5a5a6a; }
+
+        /* Contenedor Canvas 3D */
+        #canvas-container {
+            width: 100%;
+            max-width: 450px;
+            aspect-ratio: 1 / 1;
+            background: #0f0f15;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        canvas { display: block; }
+        #status { font-weight: 600; color: #4CAF50; margin-top: 10px; text-align: center; }
+
+        /* Vista del resultado */
+        #result-container {
+            display: none;
+            text-align: center;
+            background: #1e1e24;
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            width: 100%;
+            max-width: 450px;
+            box-sizing: border-box;
+        }
+
+        #result-gif, #result-video {
+            max-width: 100%;
+            border-radius: 10px;
+            margin-top: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            background: repeating-conic-gradient(#1e1e24 0% 25%, #0f0f15 0% 50%) 50% / 20px 20px;
+        }
+
+        .helper-text {
+            color: #ffeb3b;
+            font-size: 0.95rem;
+            margin-top: 10px;
+        }
+
+        /* Modal Overlay */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .modal-content {
+            background: #1e1e24;
+            padding: 35px;
+            border-radius: 25px;
+            width: 90%;
+            max-width: 450px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .modal-content h2 { margin-top: 0; text-align: center; }
+
+        .file-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .file-input-group label { font-weight: 600; }
+        .file-input-group input[type="file"] {
+            background: #2a2a35;
+            padding: 10px;
+            border-radius: 12px;
+            font-family: inherit;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+</head>
+<body>
+
+    <h1>Generador de Libro 3D</h1>
+
+    <div class="main-container">
+        
+        <div id="canvas-container"></div>
+        
+        <div id="result-container">
+            <h3 style="margin-top: 0; color: #4CAF50;">¡Archivo Creado con Éxito!</h3>
+            <p class="helper-text">Si la descarga no comenzó automáticamente, haz clic derecho sobre el elemento y selecciona <strong>"Guardar como..."</strong></p>
+            <img id="result-gif" alt="Libro animado GIF" style="display:none;">
+            <video id="result-video" controls autoplay loop style="display:none;"></video>
+            <br>
+            <button class="btn-secondary" id="btnVolver" style="margin-top: 20px;">Volver a Modificar</button>
+        </div>
+
+        <div id="status">Esperando imágenes...</div>
+
+        <div class="live-controls" id="liveControls">
+            <div class="control-group">
+                <label for="formatSelect">Formato de Salida:</label>
+                <select id="formatSelect" class="format-select">
+                    <option value="gif">GIF Animado</option>
+                    <option value="video">Video MP4 / WebM (Full HD 4:3)</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="speedRange">Velocidad de Giro:</label>
+                <input type="range" id="speedRange" min="0.005" max="0.08" step="0.005" value="0.02">
+                <span class="val-display" id="speedVal">x1.0</span>
+            </div>
+            <div class="control-group">
+                <label for="angleRange">Inclinación (Ángulo):</label>
+                <input type="range" id="angleRange" min="-0.8" max="0.8" step="0.05" value="0.2">
+                <span class="val-display" id="angleVal">0.20</span>
+            </div>
+            <div class="control-group">
+                <label for="widthRange">Ancho del Libro:</label>
+                <input type="range" id="widthRange" min="0.7" max="1.4" step="0.05" value="1.0">
+                <span class="val-display" id="widthVal">100%</span>
+            </div>
+            <div class="control-group">
+                <label for="thicknessRange">Grosor (Páginas):</label>
+                <input type="range" id="thicknessRange" min="0.4" max="2.0" step="0.1" value="1.0">
+                <span class="val-display" id="thicknessVal">100%</span>
+            </div>
+            <div class="control-group">
+                <label for="bgColorPicker">Color Fondo (HEX):</label>
+                <div class="color-group">
+                    <input type="color" id="bgColorPicker" value="#0f0f15">
+                    <input type="text" id="bgHexInput" class="hex-input" value="#0F0F15" maxlength="7">
+                </div>
+            </div>
+            <div class="control-group">
+                <label class="checkbox-label" for="transparentCheck">
+                    <input type="checkbox" id="transparentCheck">
+                    Fondo Transparente
+                </label>
+            </div>
+
+            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px; flex-wrap: wrap;">
+                <button class="btn-secondary" id="btnOpenModal">Cambiar Texturas</button>
+                <button id="btnGenerate">Generar y Descargar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="imageModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Configurar Texturas</h2>
+            <div class="file-input-group">
+                <label>Portada (Frontal):</label>
+                <input type="file" id="frontImg" accept="image/*">
+            </div>
+            <div class="file-input-group">
+                <label>Lomo (Costado):</label>
+                <input type="file" id="spineImg" accept="image/*">
+            </div>
+            <div class="file-input-group">
+                <label>Contraportada (Trasera):</label>
+                <input type="file" id="backImg" accept="image/*">
+            </div>
+            <button id="btnAcceptModal" style="margin-top: 10px;">Aceptar y Generar 3D</button>
+        </div>
+    </div>
+
+    <script>
+        let scene, camera, renderer, book;
+        let isAnimating = false;
+        
+        let rotationSpeed = 0.02;
+        let tiltAngle = 0.2;
+        let currentRotationY = 0;
+
+        const container = document.getElementById('canvas-container');
+        const statusEl = document.getElementById('status');
+        const modal = document.getElementById('imageModal');
+        const liveControls = document.getElementById('liveControls');
+
+        const speedRange = document.getElementById('speedRange');
+        const angleRange = document.getElementById('angleRange');
+        const widthRange = document.getElementById('widthRange');
+        const thicknessRange = document.getElementById('thicknessRange');
+        const bgColorPicker = document.getElementById('bgColorPicker');
+        const bgHexInput = document.getElementById('bgHexInput');
+        const transparentCheck = document.getElementById('transparentCheck');
+        const formatSelect = document.getElementById('formatSelect');
+
+        const speedVal = document.getElementById('speedVal');
+        const angleVal = document.getElementById('angleVal');
+        const widthVal = document.getElementById('widthVal');
+        const thicknessVal = document.getElementById('thicknessVal');
+
+        function createPagesTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = '#f4efe4';
+            ctx.fillRect(0, 0, 512, 512);
+            
+            ctx.strokeStyle = '#c8bfb0';
+            ctx.lineWidth = 1.5;
+            for (let y = 0; y < 512; y += 4) {
+                ctx.beginPath();
+                ctx.moveTo(0, y + 0.5);
+                ctx.lineTo(512, y + 0.5);
+                ctx.stroke();
+            }
+
+            const grad = ctx.createLinearGradient(0, 0, 512, 0);
+            grad.addColorStop(0, 'rgba(0,0,0,0.15)');
+            grad.addColorStop(0.08, 'rgba(0,0,0,0)');
+            grad.addColorStop(0.92, 'rgba(0,0,0,0)');
+            grad.addColorStop(1, 'rgba(0,0,0,0.15)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 512, 512);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            return texture;
+        }
+
+        function updateSceneBackground() {
+            if (!scene) return;
+            if (transparentCheck.checked) {
+                scene.background = null;
+                container.style.background = "repeating-conic-gradient(#1e1e24 0% 25%, #0f0f15 0% 50%) 50% / 20px 20px";
+            } else {
+                const colorHex = bgColorPicker.value;
+                scene.background = new THREE.Color(colorHex);
+                container.style.background = colorHex;
+            }
+        }
+
+        function init3D() {
+            scene = new THREE.Scene();
+
+            camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+            camera.position.z = 5.8;
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+            renderer.setSize(450, 450);
+            renderer.setClearColor(0x000000, 0);
+            container.appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.95);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
+            directionalLight.position.set(2, 3, 5);
+            scene.add(directionalLight);
+
+            updateSceneBackground();
+            animate();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (book && isAnimating) {
+                currentRotationY += rotationSpeed;
+                book.rotation.y = currentRotationY;
+                book.rotation.x = tiltAngle;
+                renderer.render(scene, camera);
+            }
+        }
+
+        function readFile(file) {
+            return new Promise((resolve, reject) => {
+                if (!file) return resolve(null);
+                const reader = new FileReader();
+                reader.onload = e => resolve(e.target.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function createBookFromModal() {
+            const frontFile = document.getElementById('frontImg').files[0];
+            const spineFile = document.getElementById('spineImg').files[0];
+            const backFile = document.getElementById('backImg').files[0];
+
+            if (!frontFile || !spineFile || !backFile) {
+                alert("Por favor sube las 3 imágenes para continuar.");
+                return;
+            }
+
+            statusEl.innerText = "Cargando texturas...";
+            
+            const [frontSrc, spineSrc, backSrc] = await Promise.all([
+                readFile(frontFile), readFile(spineFile), readFile(backFile)
+            ]);
+
+            const textureLoader = new THREE.TextureLoader();
+            const frontTex = textureLoader.load(frontSrc);
+            const spineTex = textureLoader.load(spineSrc);
+            const backTex = textureLoader.load(backSrc);
+
+            const pagesTex = createPagesTexture();
+            const pagesMat = new THREE.MeshLambertMaterial({ map: pagesTex });
+
+            const materials = [
+                pagesMat, 
+                new THREE.MeshLambertMaterial({ map: spineTex }), 
+                pagesMat, 
+                pagesMat, 
+                new THREE.MeshLambertMaterial({ map: frontTex }), 
+                new THREE.MeshLambertMaterial({ map: backTex })  
+            ];
+
+            const geometry = new THREE.BoxGeometry(2.1, 3.0, 0.35);
+
+            if (book) scene.remove(book);
+            book = new THREE.Mesh(geometry, materials);
+
+            book.scale.x = parseFloat(widthRange.value);
+            book.scale.z = parseFloat(thicknessRange.value);
+
+            scene.add(book);
+
+            modal.classList.add('hidden');
+            liveControls.style.display = 'block';
+            statusEl.innerText = "Vista previa en tiempo real activa.";
+            statusEl.style.color = "#a0a0a0";
+            
+            isAnimating = true; 
+        }
+
+        // --- Exportación GIF ---
+        function generateGIF() {
+            isAnimating = false; 
+            statusEl.innerText = "Capturando cuadros del GIF...";
+            statusEl.style.color = "#ffeb3b";
+            document.getElementById('btnGenerate').disabled = true;
+
+            const workerBlob = new Blob(['importScripts("https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js");'], { type: 'application/javascript' });
+            const workerUrl = URL.createObjectURL(workerBlob);
+
+            const isTransparent = transparentCheck.checked;
+            const chromaKeyHex = 0xFF00FF; 
+
+            const gifConfig = {
+                workers: 2,
+                quality: 10,
+                width: 450,
+                height: 450,
+                workerScript: workerUrl
+            };
+
+            if (isTransparent) {
+                gifConfig.transparent = chromaKeyHex;
+                scene.background = null;
+            } else {
+                scene.background = new THREE.Color(bgColorPicker.value);
+            }
+
+            const gif = new GIF(gifConfig);
+            const framesToCapture = Math.max(12, Math.round((Math.PI * 2 / rotationSpeed) * (25 / 60)));
+            let currentFrame = 0;
+            let captureStep = (Math.PI * 2) / framesToCapture; 
+            
+            book.rotation.y = 0; 
+
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = 450;
+            tempCanvas.height = 450;
+            const tempCtx = tempCanvas.getContext('2d');
+
+            function captureFrame() {
+                if (currentFrame < framesToCapture) {
+                    book.rotation.y = currentFrame * captureStep;
+                    book.rotation.x = tiltAngle;
+                    renderer.render(scene, camera);
+                    
+                    if (isTransparent) {
+                        tempCtx.clearRect(0, 0, 450, 450);
+                        tempCtx.drawImage(renderer.domElement, 0, 0);
+                        const imgData = tempCtx.getImageData(0, 0, 450, 450);
+                        const data = imgData.data;
+
+                        for (let i = 0; i < data.length; i += 4) {
+                            if (data[i + 3] < 128) {
+                                data[i] = 255;
+                                data[i + 1] = 0;
+                                data[i + 2] = 255;
+                                data[i + 3] = 255;
+                            } else {
+                                data[i + 3] = 255;
+                            }
+                        }
+                        tempCtx.putImageData(imgData, 0, 0);
+                        gif.addFrame(tempCanvas, { copy: true, delay: 40 }); 
+                    } else {
+                        gif.addFrame(renderer.domElement, { copy: true, delay: 40 }); 
+                    }
+                    
+                    currentFrame++;
+                    statusEl.innerText = `Capturando imagen: ${currentFrame} / ${framesToCapture}`;
+                    requestAnimationFrame(captureFrame);
+                } else {
+                    statusEl.innerText = "Compilando archivo GIF final... ⚙️";
+                    gif.render();
+                }
+            }
+
+            gif.on('finished', function(blob) {
+                const url = URL.createObjectURL(blob);
+                updateSceneBackground();
+
+                document.getElementById('canvas-container').style.display = 'none';
+                document.getElementById('result-container').style.display = 'block';
+                
+                const resultGif = document.getElementById('result-gif');
+                const resultVideo = document.getElementById('result-video');
+                resultVideo.style.display = 'none';
+                resultGif.style.display = 'block';
+                resultGif.src = url;
+
+                statusEl.innerText = "¡GIF generado con éxito!";
+                statusEl.style.color = "#4CAF50";
+                document.getElementById('btnGenerate').disabled = false;
+                
+                try {
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'libro_3d_animado.gif';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                } catch(e) {}
+            });
+
+            captureFrame();
+        }
+
+        // --- Exportación Video Full HD 4:3 ---
+        function generateVideo() {
+            isAnimating = false;
+            statusEl.innerText = "Generando Video Full HD (4:3)...";
+            statusEl.style.color = "#ffeb3b";
+            document.getElementById('btnGenerate').disabled = true;
+
+            // 1. Configurar alta resolución 4:3 (1440 x 1080)
+            const videoW = 1440;
+            const videoH = 1080;
+            
+            renderer.setSize(videoW, videoH, false);
+            camera.aspect = videoW / videoH;
+            camera.updateProjectionMatrix();
+
+            const isTransparent = transparentCheck.checked;
+            if (isTransparent) {
+                scene.background = null;
+            } else {
+                scene.background = new THREE.Color(bgColorPicker.value);
+            }
+
+            // Seleccionar códec compatible con transparencia (VP9/WebM) o MP4 estándar
+            let mimeType = 'video/webm;codecs=vp9';
+            let ext = 'webm';
+            
+            if (!isTransparent) {
+                if (MediaRecorder.isTypeSupported('video/mp4;codecs=avc1.42E01E')) {
+                    mimeType = 'video/mp4;codecs=avc1.42E01E';
+                    ext = 'mp4';
+                } else if (MediaRecorder.isTypeSupported('video/mp4')) {
+                    mimeType = 'video/mp4';
+                    ext = 'mp4';
+                }
+            }
+
+            const stream = renderer.domElement.captureStream(30);
+            let mediaRecorder;
+            try {
+                mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
+            } catch(e) {
+                mediaRecorder = new MediaRecorder(stream);
+            }
+
+            const chunks = [];
+            mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(chunks, { type: mediaRecorder.mimeType || 'video/mp4' });
+                const url = URL.createObjectURL(blob);
+
+                // Restaurar resolución de vista previa
+                renderer.setSize(450, 450, false);
+                camera.aspect = 1;
+                camera.updateProjectionMatrix();
+                updateSceneBackground();
+
+                document.getElementById('canvas-container').style.display = 'none';
+                document.getElementById('result-container').style.display = 'block';
+
+                const resultGif = document.getElementById('result-gif');
+                const resultVideo = document.getElementById('result-video');
+                resultGif.style.display = 'none';
+                resultVideo.style.display = 'block';
+                resultVideo.src = url;
+
+                statusEl.innerText = "¡Video generado con éxito!";
+                statusEl.style.color = "#4CAF50";
+                document.getElementById('btnGenerate').disabled = false;
+
+                try {
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `libro_3d_animado.${ext}`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                } catch(e) {}
+            };
+
+            mediaRecorder.start();
+
+            const framesToCapture = Math.max(30, Math.round((Math.PI * 2 / rotationSpeed)));
+            let currentFrame = 0;
+            let captureStep = (Math.PI * 2) / framesToCapture;
+            book.rotation.y = 0;
+
+            function recordFrame() {
+                if (currentFrame <= framesToCapture) {
+                    book.rotation.y = currentFrame * captureStep;
+                    book.rotation.x = tiltAngle;
+                    renderer.render(scene, camera);
+                    
+                    currentFrame++;
+                    statusEl.innerText = `Grabando video Full HD: ${Math.round((currentFrame / framesToCapture) * 100)}%`;
+                    setTimeout(recordFrame, 1000 / 30);
+                } else {
+                    mediaRecorder.stop();
+                }
+            }
+
+            recordFrame();
+        }
+
+        // --- Manejador principal de exportación ---
+        function handleExport() {
+            if (formatSelect.value === 'video') {
+                generateVideo();
+            } else {
+                generateGIF();
+            }
+        }
+
+        // --- Event Listeners ---
+        document.getElementById('btnAcceptModal').addEventListener('click', createBookFromModal);
+        document.getElementById('btnOpenModal').addEventListener('click', () => modal.classList.remove('hidden'));
+        document.getElementById('btnGenerate').addEventListener('click', handleExport);
+        
+        document.getElementById('btnVolver').addEventListener('click', () => {
+            document.getElementById('result-container').style.display = 'none';
+            document.getElementById('canvas-container').style.display = 'flex';
+            currentRotationY = 0; 
+            isAnimating = true;
+            statusEl.innerText = "Vista previa en tiempo real activa.";
+            statusEl.style.color = "#a0a0a0";
+        });
+
+        speedRange.addEventListener('input', (e) => {
+            rotationSpeed = parseFloat(e.target.value);
+            speedVal.innerText = 'x' + (rotationSpeed * 50).toFixed(1);
+        });
+
+        angleRange.addEventListener('input', (e) => {
+            tiltAngle = parseFloat(e.target.value);
+            angleVal.innerText = tiltAngle.toFixed(2);
+        });
+
+        widthRange.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            if (book) book.scale.x = val;
+            widthVal.innerText = Math.round(val * 100) + '%';
+        });
+
+        thicknessRange.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            if (book) book.scale.z = val;
+            thicknessVal.innerText = Math.round(val * 100) + '%';
+        });
+
+        bgColorPicker.addEventListener('input', (e) => {
+            bgHexInput.value = e.target.value.toUpperCase();
+            updateSceneBackground();
+        });
+
+        bgHexInput.addEventListener('input', (e) => {
+            let val = e.target.value;
+            if (!val.startsWith('#')) val = '#' + val;
+            if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+                bgColorPicker.value = val;
+                updateSceneBackground();
+            }
+        });
+
+        transparentCheck.addEventListener('change', () => {
+            bgColorPicker.disabled = transparentCheck.checked;
+            bgHexInput.disabled = transparentCheck.checked;
+            updateSceneBackground();
+        });
+
+        init3D();
+    </script>
+</body>
+</html>
